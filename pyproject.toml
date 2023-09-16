@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "catfish.io"
+version = "0.0.1"
+description = ""
+authors = ["Dani <dani.sc23@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11.5"
+fastapi = "^0.92.0"
+uvicorn = { extras = ["standard"], version = "^0.20.0" }
+pydantic = "^1.10.4"
+Jinja2 = "^3.1.2"
+# redis = "^4.5.1"
+
+[tool.poetry.dev-dependencies]
+flake8 = "^6.0.0"
+pydantic-factories = "^1.17.2"
+pytest = "^7.2.1"
+pytest-asyncio = "^0.20.3"
+pytest-mock = "^3.10.0"
+httpx = "^0.23.3"
+black = "^23.9.1"
+
+[build-system]
+requires = ["poetry>=1.1.4"]
+build-backend = "poetry.masonry.api"

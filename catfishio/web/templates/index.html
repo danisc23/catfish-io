@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>{{ username }}</title>
+    <style>
+        div.user-mouse-position {
+            position: absolute;
+            color: red;
+            font-weight: bold;
+            font-size: 20px;
+            z-index: 1000;
+        }
+    </style>
+    <script src="../../static/js/reconnecting-websocket.min.js"></script>
+</head>
+
+<body>
+    <h1>Chat</h1>
+    <div>
+        <textarea id="messages" rows="10" cols="50" readonly></textarea>
+    </div>
+    <div>
+        <input id="message" type="text" size="50">
+        <button id="send" onclick="sendMessage()">Send</button>
+    </div>
+    <script>
+        var port = window.location.port;
+        var host = port ? window.location.hostname + ":" + port : window.location.hostname;
+        var selfUsername = "{{ username }}";
+        var ws = new ReconnectingWebSocket(`ws://${host}/api/ws/event-handler/${selfUsername}`);
+        var messages = document.getElementById("messages");
+        var userMousePositionList = [];
+        function getRandomAnimalEmoji() {
+            var animals = ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐚", "🐞", "🐜", "🕷", "🕸"];
+            var randomIndex = Math.floor(Math.random() * animals.length);
+            return animals[randomIndex];
+        }
+        var emoji = getRandomAnimalEmoji();
+
+        ws.onmessage = function (event) {
+            var messageAsJson = JSON.parse(event.data);
+            if (messageAsJson.type === "chat-message") {
+                messages.value = messages.value + messageAsJson.username + ": " + messageAsJson.message + "\n";
+            } else if (messageAsJson.type === "mouse-position") {
+                drawMousePosition(messageAsJson);
+            } else if (messageAsJson.type === "chat-resize") {
+                drawChatBoxResize(messageAsJson);
+            }
+        };
+
+        function sendMessage() {
+            var message = document.getElementById("message").value;
+            var messageAsJson = JSON.stringify({
+                type: "chat-message",
+                message: message
+            });
+            ws.send(messageAsJson);
+            document.getElementById("message").value = "";
+        }
+
+        function sendMousePosition(event) {
+            if (userMousePositionList[selfUsername] === undefined) {
+                var userMousePosition = document.createElement("div");
+                userMousePosition.id = selfUsername;
+                userMousePosition.innerHTML = emoji + " " + selfUsername;
+                userMousePosition.className = "user-mouse-position";
+                userMousePosition.style.fontSize = "20px";
+                document.body.appendChild(userMousePosition);
+                userMousePositionList[selfUsername] = userMousePosition;
+            }
+            var currentUserMousePosition = userMousePositionList[selfUsername];
+            currentUserMousePosition.style.left = event.clientX + 10 + "px";
+            currentUserMousePosition.style.top = event.clientY + "px";
+            if (timeout) {
+                return;
+            }
+            var message = {
+                x: currentUserMousePosition.style.left,
+                y: currentUserMousePosition.style.top,
+                font_size: currentUserMousePosition.style.fontSize,
+                emoji: emoji,
+                type: "mouse-position"
+            };
+            ws.send(JSON.stringify(message));
+            setTimeoutWay(250);
+        }
+
+        function sendChatBoxResize() {
+            var message = { type: "chat-resize", width: messages.clientWidth, height: messages.clientHeight };
+            ws.send(JSON.stringify(message));
+        }
+
+        function drawChatBoxResize(messageAsJson) {
+            messages.style.width = messageAsJson.width + "px";
+            messages.style.height = messageAsJson.height + "px";
+        }
+
+        function drawMousePosition(messageAsJson) {
+            // don't draw mouse position of self
+            if (messageAsJson.username === selfUsername) {
+                return;
+            };
+            if (userMousePositionList[messageAsJson.username] === undefined) {
+                var userMousePosition = document.createElement("div");
+                userMousePosition.id = messageAsJson.username;
+                userMousePosition.innerHTML = messageAsJson.emoji + " " + messageAsJson.username;
+                userMousePosition.className = "user-mouse-position";
+                userMousePosition.style.transition = "all 0.5s";
+                document.body.appendChild(userMousePosition);
+                userMousePositionList[messageAsJson.username] = userMousePosition;
+            }
+            var userMousePosition = userMousePositionList[messageAsJson.username];
+            var { position } = messageAsJson;
+            console.log(position);
+            var offset = 10;
+            userMousePosition.style.left = position.x + "px";
+            userMousePosition.style.top = position.y + "px";
+            userMousePosition.style.fontSize = position.font_size + "px";
+        }
+
+        function zoomUserMousePositionByScrolling(event) {
+            var delta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
+            var zoom = delta > 0 ? 1.1 : 0.9;
+            var userMousePosition = userMousePositionList[selfUsername];
+            var fontSize = parseInt(userMousePosition.style.fontSize);
+            var minFontSize = 10;
+            var maxFontSize = 80;
+            if (fontSize * zoom < minFontSize || fontSize * zoom > maxFontSize) {
+                return;
+            }
+            userMousePosition.style.fontSize = parseInt(fontSize * zoom) + "px";
+            sendMousePosition(event);
+        }
+
+        document.addEventListener("mousewheel", zoomUserMousePositionByScrolling, false);
+
+        var timeout;
+        var setTimeoutWay = function (delay) {
+            timeout = true;
+            setTimeout(function () {
+                timeout = false;
+            }, delay);
+        }
+
+
+        // send mouse position when mouse moves or resizes
+        document.addEventListener("mousemove", sendMousePosition);
+
+        // send chat box resize when messages textarea is resized by releasing mouse button
+        messages.addEventListener("mouseup", sendChatBoxResize);
+
+        // send message when enter key is pressed
+        document.getElementById("message").addEventListener("keyup", function (event) {
+            if (event.keyCode === 13) {
+                event.preventDefault();
+                document.getElementById("send").click();
+            }
+        });
+
+    </script>
+</body>
+
+</html>
