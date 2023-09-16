@@ -25,10 +25,11 @@
         <button id="send" onclick="sendMessage()">Send</button>
     </div>
     <script>
-        var port = window.location.port;
-        var host = port ? window.location.hostname + ":" + port : window.location.hostname;
-        var selfUsername = "{{ username }}";
-        var ws = new ReconnectingWebSocket(`ws://${host}/api/ws/event-handler/${selfUsername}`);
+        const port = window.location.port;
+        const host = port ? window.location.hostname + ":" + port : window.location.hostname;
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        const selfUsername = "{{ username }}";
+        const ws = new ReconnectingWebSocket(`${protocol}://${host}/api/ws/event-handler/${selfUsername}`);
         var messages = document.getElementById("messages");
         var userMousePositionList = [];
         function getRandomAnimalEmoji() {
